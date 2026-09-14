@@ -34,10 +34,15 @@ export interface TwoFAPayload {
 }
 
 export interface RegisterPayload {
-  username: string
   password: string
-  email?: string
+  email: string
   verification_code?: string
+  real_name: string
+  organization: string
+  academic_identity: string
+  supervisor_name: string
+  research_direction: string
+  usage_purpose: string
   aff_code?: string
   turnstile?: string
 }

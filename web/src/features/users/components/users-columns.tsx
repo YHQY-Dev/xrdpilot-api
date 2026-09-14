@@ -84,17 +84,20 @@ export function useUsersColumns(): ColumnDef<User>[] {
     },
     {
       accessorKey: 'username',
-      header: t('Username'),
+      header: t('Name'),
       cell: ({ row }) => {
         const username = row.getValue('username') as string
-        const displayName = row.original.display_name
+        const realName = row.original.real_name?.trim()
+        const displayName = row.original.display_name?.trim()
+        const email = row.original.email?.trim()
         const remark = row.original.remark
+        const primaryName = realName || displayName || username
 
         return (
-          <div className='flex min-w-[160px] flex-col gap-1'>
+          <div className='flex min-w-[180px] flex-col gap-1'>
             <div className='flex items-center gap-2'>
-              <LongText className='max-w-[140px] font-medium'>
-                {username}
+              <LongText className='max-w-[160px] font-medium'>
+                {primaryName}
               </LongText>
               {remark && (
                 <Tooltip>
@@ -109,9 +112,14 @@ export function useUsersColumns(): ColumnDef<User>[] {
                 </Tooltip>
               )}
             </div>
-            {displayName && displayName !== username && (
-              <LongText className='text-muted-foreground max-w-[180px] text-xs'>
-                {displayName}
+            {email && (
+              <LongText className='text-muted-foreground max-w-[200px] text-xs'>
+                {email}
+              </LongText>
+            )}
+            {username && username !== primaryName && (
+              <LongText className='text-muted-foreground max-w-[200px] text-xs'>
+                {t('Internal username')}: {username}
               </LongText>
             )}
           </div>

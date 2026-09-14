@@ -59,7 +59,6 @@ export type {
 
 export {
   loginFormSchema,
-  registerFormSchema,
   forgotPasswordFormSchema,
   otpFormSchema,
   PASSWORD_MIN_LENGTH,
@@ -71,6 +70,12 @@ export {
   EMAIL_VERIFICATION_COUNTDOWN,
   PASSWORD_RESET_COUNTDOWN,
 } from './constants'
+
+export {
+  createRegisterFormSchema,
+  ACADEMIC_IDENTITIES,
+  ACADEMIC_IDENTITY_CODES,
+} from './lib/registration-profile'
 
 // ============================================================================
 // Utilities

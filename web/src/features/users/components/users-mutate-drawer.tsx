@@ -62,6 +62,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Textarea } from '@/components/ui/textarea'
+import { academicIdentityLabelKey } from '@/features/auth/lib/registration-profile'
 import {
   ADMIN_PERMISSION_ACTIONS,
   ADMIN_PERMISSION_RESOURCES,
@@ -89,7 +90,7 @@ import {
   transformFormDataToPayload,
   transformUserToFormDefaults,
 } from '../lib'
-import { type User } from '../types'
+import type { User } from '../types'
 import { UserQuotaDialog } from './user-quota-dialog'
 import { useUsers } from './users-provider'
 
@@ -110,6 +111,7 @@ export function UsersMutateDrawer({
   const currentUser = useAuthStore((s) => s.auth.user)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [quotaDialogOpen, setQuotaDialogOpen] = useState(false)
+  const [detailUser, setDetailUser] = useState<User | undefined>(currentRow)
 
   // Fetch groups
   const { data: groupsData } = useQuery({
@@ -135,15 +137,17 @@ export function UsersMutateDrawer({
   // Load existing data when updating
   useEffect(() => {
     if (open && isUpdate && currentRow) {
-      // For update, fetch fresh data
-      getUser(currentRow.id).then((result) => {
-        if (result.success && result.data) {
-          form.reset(transformUserToFormDefaults(result.data))
-        }
-      })
+      getUser(currentRow.id)
+        .then((result) => {
+          if (result.success && result.data) {
+            form.reset(transformUserToFormDefaults(result.data))
+            setDetailUser(result.data)
+          }
+        })
+        .catch(() => undefined)
     } else if (open && !isUpdate) {
-      // For create, reset to defaults
       form.reset(USER_FORM_DEFAULT_VALUES)
+      setDetailUser(undefined)
     }
   }, [open, isUpdate, currentRow, form])
 
@@ -195,7 +199,7 @@ export function UsersMutateDrawer({
               : t(ERROR_MESSAGES.CREATE_FAILED))
         )
       }
-    } catch (_error) {
+    } catch {
       toast.error(t(ERROR_MESSAGES.UNEXPECTED))
     } finally {
       setIsSubmitting(false)
@@ -207,9 +211,17 @@ export function UsersMutateDrawer({
     const result = await getUser(currentRow.id)
     if (result.success && result.data) {
       form.reset(transformUserToFormDefaults(result.data))
+      setDetailUser(result.data)
     }
     triggerRefresh()
   }
+
+  const academicIdentityLabel = academicIdentityLabelKey(
+    detailUser?.academic_identity
+  )
+  const academicIdentityDisplay = academicIdentityLabel
+    ? t(academicIdentityLabel)
+    : detailUser?.academic_identity
 
   return (
     <>
@@ -360,12 +372,10 @@ export function UsersMutateDrawer({
                       <FormItem>
                         <FormLabel>{t('Group')}</FormLabel>
                         <Select
-                          items={[
-                            ...groups.map((group) => ({
-                              value: group,
-                              label: group,
-                            })),
-                          ]}
+                          items={groups.map((group) => ({
+                            value: group,
+                            label: group,
+                          }))}
                           onValueChange={field.onChange}
                           value={field.value}
                         >
@@ -540,6 +550,68 @@ export function UsersMutateDrawer({
                     )}
                   </SideDrawerSection>
                 )}
+
+              {/* Registration profile (Read-only) */}
+              {isUpdate && (
+                <SideDrawerSection>
+                  <h3 className='text-sm font-medium'>
+                    {t('Registration profile')}
+                  </h3>
+                  <p className='text-muted-foreground text-xs'>
+                    {t('Research registration details (read-only)')}
+                  </p>
+                  <div className='flex flex-col gap-3'>
+                    {[
+                      {
+                        label: t('Real name'),
+                        value: detailUser?.real_name,
+                      },
+                      {
+                        label: t('Email'),
+                        value: detailUser?.email,
+                      },
+                      {
+                        label: t('Research organization'),
+                        value: detailUser?.organization,
+                      },
+                      {
+                        label: t('Academic identity'),
+                        value: academicIdentityDisplay,
+                      },
+                      {
+                        label: t('Supervisor name'),
+                        value: detailUser?.supervisor_name,
+                      },
+                      {
+                        label: t('Research direction'),
+                        value: detailUser?.research_direction,
+                      },
+                    ].map((item) => (
+                      <div key={item.label}>
+                        <Label className='text-muted-foreground text-xs'>
+                          {item.label}
+                        </Label>
+                        <Input
+                          value={item.value || '-'}
+                          disabled
+                          className='mt-1'
+                        />
+                      </div>
+                    ))}
+                    <div>
+                      <Label className='text-muted-foreground text-xs'>
+                        {t('Intended use of the program')}
+                      </Label>
+                      <Textarea
+                        value={detailUser?.usage_purpose || '-'}
+                        disabled
+                        rows={4}
+                        className='mt-1'
+                      />
+                    </div>
+                  </div>
+                </SideDrawerSection>
+              )}
 
               {/* Binding Information (Read-only) */}
               {isUpdate && (
