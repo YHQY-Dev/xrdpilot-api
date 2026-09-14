@@ -218,10 +218,15 @@ func Register(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 		return
 	}
-	user.Username = strings.TrimSpace(user.Username)
-	user.Email = model.NormalizeEmail(user.Email)
-	if user.Username == "" {
-		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+	if err := model.FillPasswordRegistration(&user); err != nil {
+		switch {
+		case errors.Is(err, model.ErrRegistrationEmailRequired):
+			common.ApiErrorI18n(c, i18n.MsgUserEmailEmpty)
+		case errors.Is(err, model.ErrRegistrationUsernameAllocate):
+			common.ApiErrorI18n(c, i18n.MsgUserRegisterFailed)
+		default:
+			common.ApiErrorI18n(c, i18n.MsgUserProfileInvalid)
+		}
 		return
 	}
 	if err := common.Validate.Struct(&user); err != nil {
@@ -229,7 +234,7 @@ func Register(c *gin.Context) {
 		return
 	}
 	if common.EmailVerificationEnabled {
-		if user.Email == "" || user.VerificationCode == "" {
+		if user.VerificationCode == "" {
 			common.ApiErrorI18n(c, i18n.MsgUserEmailVerificationRequired)
 			return
 		}
@@ -237,20 +242,16 @@ func Register(c *gin.Context) {
 			common.ApiErrorI18n(c, i18n.MsgUserVerificationCodeError)
 			return
 		}
-		if err := model.EnsureEmailAvailable(user.Email, 0); err != nil {
-			if errors.Is(err, model.ErrEmailAlreadyTaken) {
-				common.ApiErrorI18n(c, i18n.MsgUserEmailAlreadyTaken)
-				return
-			}
-			common.ApiErrorI18n(c, i18n.MsgDatabaseError)
+	}
+	if err := model.EnsureEmailAvailable(user.Email, 0); err != nil {
+		if errors.Is(err, model.ErrEmailAlreadyTaken) {
+			common.ApiErrorI18n(c, i18n.MsgUserEmailAlreadyTaken)
 			return
 		}
+		common.ApiErrorI18n(c, i18n.MsgDatabaseError)
+		return
 	}
-	emailForExistCheck := ""
-	if common.EmailVerificationEnabled {
-		emailForExistCheck = user.Email
-	}
-	exist, err := model.CheckUserExistOrDeleted(user.Username, emailForExistCheck)
+	exist, err := model.CheckUserExistOrDeleted(user.Username, user.Email)
 	if err != nil {
 		common.ApiErrorI18n(c, i18n.MsgDatabaseError)
 		common.SysLog(fmt.Sprintf("CheckUserExistOrDeleted error: %v", err))
@@ -263,14 +264,18 @@ func Register(c *gin.Context) {
 	affCode := user.AffCode // this code is the inviter's code, not the user's own code
 	inviterId, _ := model.GetUserIdByAffCode(affCode)
 	cleanUser := model.User{
-		Username:    user.Username,
-		Password:    user.Password,
-		DisplayName: user.Username,
-		InviterId:   inviterId,
-		Role:        common.RoleCommonUser, // 明确设置角色为普通用户
-	}
-	if common.EmailVerificationEnabled {
-		cleanUser.Email = user.Email
+		Username:          user.Username,
+		Password:          user.Password,
+		DisplayName:       user.DisplayName,
+		Email:             user.Email,
+		RealName:          user.RealName,
+		Organization:      user.Organization,
+		AcademicIdentity:  user.AcademicIdentity,
+		SupervisorName:    user.SupervisorName,
+		ResearchDirection: user.ResearchDirection,
+		UsagePurpose:      user.UsagePurpose,
+		InviterId:         inviterId,
+		Role:              common.RoleCommonUser, // 明确设置角色为普通用户
 	}
 	if err := cleanUser.Insert(inviterId); err != nil {
 		if errors.Is(err, model.ErrEmailAlreadyTaken) {
